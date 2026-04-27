@@ -1,0 +1,18 @@
+[project]
+name = "web-scraper-docgen"
+version = "0.1.0"
+description = "基于CrewAI和FastAPI的智能网页文档生成系统"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "crewai>=0.86.0",
+    "crewai-tools>=0.14.0",
+    "langchain-openai>=0.2.0",
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.9.0",
+    "numpy>=2.4.4",
+    "playwright>=1.40.0",
+]
