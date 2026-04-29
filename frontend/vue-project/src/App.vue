@@ -1,192 +1,402 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
+  <div class="min-h-screen bg-dark-bg">
     <!-- 导航栏 -->
     <nav class="fixed top-0 left-0 right-0 z-50 glass">
-      <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-        <div class="text-2xl font-bold bg-gradient-to-r from-neon-green to-neon-blue bg-clip-text text-transparent">
-          TechVision
+      <div class="max-w-2xl mx-auto px-4 md:px-8 py-4 flex justify-between items-center">
+        <div class="text-xl md:text-2xl font-bold bg-gradient-to-r from-neon-green to-cyan-blue bg-clip-text text-transparent">
+          DocGen
         </div>
-        <div class="flex space-x-6">
-          <a href="#features" class="text-gray-300 hover:text-neon-green transition-colors">功能</a>
-          <a href="#about" class="text-gray-300 hover:text-neon-green transition-colors">关于</a>
-          <a href="#contact" class="text-gray-300 hover:text-neon-green transition-colors">联系</a>
-        </div>
+        <span class="text-gray-400 text-sm hidden md:block">智能文档生成器</span>
       </div>
     </nav>
 
-    <!-- 主内容 -->
-    <main class="container mx-auto px-4 pt-24 pb-16">
-      <!-- Hero 区域 -->
-      <section class="min-h-[80vh] flex items-center justify-center">
-        <div class="text-center max-w-3xl">
-          <h1 class="text-5xl md:text-7xl font-bold mb-6">
-            <span class="bg-gradient-to-r from-neon-green to-neon-blue bg-clip-text text-transparent">
-              下一代
-            </span>
-            <br>
-            <span class="text-white">智能分析平台</span>
-          </h1>
-          <p class="text-xl text-gray-400 mb-8">
-            利用最先进的人工智能技术，为您的业务提供深度洞察和智能决策支持
-          </p>
-          <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <button class="px-8 py-4 bg-gradient-to-r from-neon-green to-neon-blue text-gray-900 font-bold rounded-xl hover:from-green-300 hover:to-blue-300 transition-all duration-300 transform hover:scale-105 shadow-neon-green">
-              立即开始
-            </button>
-            <button class="px-8 py-4 bg-transparent border-2 border-neon-green text-neon-green font-bold rounded-xl hover:bg-neon-green/10 transition-all duration-300">
-              了解更多
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 功能区域 -->
-      <section id="features" class="py-16">
-        <h2 class="text-4xl font-bold text-center mb-12 text-white">核心功能</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div class="glass rounded-2xl p-8 hover:shadow-neon-green transition-all duration-300">
-            <div class="text-4xl mb-4">🧠</div>
-            <h3 class="text-2xl font-bold mb-4 text-neon-green">智能分析</h3>
-            <p class="text-gray-400">利用深度学习算法，对复杂数据进行智能分析，提取关键信息</p>
-          </div>
-          <div class="glass rounded-2xl p-8 hover:shadow-neon-blue transition-all duration-300">
-            <div class="text-4xl mb-4">📊</div>
-            <h3 class="text-2xl font-bold mb-4 text-neon-blue">数据可视化</h3>
-            <p class="text-gray-400">将复杂的数据转化为直观的图表和报告，帮助您快速理解</p>
-          </div>
-          <div class="glass rounded-2xl p-8 hover:shadow-neon-green transition-all duration-300">
-            <div class="text-4xl mb-4">🔒</div>
-            <h3 class="text-2xl font-bold mb-4 text-neon-green">安全保障</h3>
-            <p class="text-gray-400">采用企业级加密技术，确保您的数据安全和隐私保护</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- 关于区域 -->
-      <section id="about" class="py-16">
-        <div class="glass rounded-2xl p-12">
-          <h2 class="text-4xl font-bold mb-8 text-white">关于我们</h2>
-          <p class="text-gray-400 mb-6 text-lg">
-            TechVision 是一家专注于人工智能和数据分析的科技公司。我们的使命是通过创新的技术解决方案，帮助企业实现数字化转型，提升运营效率。
-          </p>
-          <p class="text-gray-400 text-lg">
-            我们的团队由来自世界顶尖科技公司的专家组成，拥有丰富的人工智能、大数据和云计算经验。我们致力于为客户提供最先进的技术解决方案和最优质的服务。
-          </p>
-        </div>
-      </section>
-
-      <!-- 联系区域 -->
-      <section id="contact" class="py-16">
-        <h2 class="text-4xl font-bold text-center mb-12 text-white">联系我们</h2>
-        <div class="max-w-2xl mx-auto">
-          <form @submit.prevent="submitForm" class="space-y-6">
-            <div>
-              <input
-                v-model="formData.name"
-                type="text"
-                placeholder="您的姓名"
-                class="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-neon-green focus:ring-2 focus:ring-neon-green/20 transition-all"
-              >
+    <!-- 主内容区域 -->
+    <main class="max-w-4xl mx-auto px-4 md:px-8 pt-24 pb-16">
+      <!-- 输入区域 - 居中显示 -->
+      <section class="py-16">
+        <div class="card-glass p-8">
+            <!-- URL输入 -->
+            <div class="mb-6">
+              <label class="block text-gray-400 mb-2 text-sm">目标网址</label>
+              <div class="relative">
+                <input
+                  v-model="url"
+                  type="text"
+                  placeholder="请输入要爬取的网址，如: https://example.com"
+                  class="input-glass w-full pr-10"
+                  @input="validateUrl"
+                  @blur="validateUrl"
+                />
+                <button
+                  v-if="url"
+                  @click="url = ''"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div>
-              <input
-                v-model="formData.email"
-                type="email"
-                placeholder="您的邮箱"
-                class="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-neon-green focus:ring-2 focus:ring-neon-green/20 transition-all"
-              >
+
+            <!-- 文档类型选择 -->
+            <div class="mb-6">
+              <label class="block text-gray-400 mb-3 text-sm">文档类型</label>
+              <div class="flex gap-3">
+                <label
+                  v-for="doc in docTypes"
+                  :key="doc.value"
+                  class="flex-1 flex items-center justify-center px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 border"
+                  :class="docType === doc.value ? 'bg-neon-green/20 border-neon-green' : 'bg-dark-surface border-dark-border hover:border-neon-green/50'"
+                >
+                  <input
+                    type="radio"
+                    :value="doc.value"
+                    v-model="docType"
+                    class="sr-only"
+                  />
+                  <span class="text-lg mr-2">{{ doc.icon }}</span>
+                  <span class="text-sm" :class="docType === doc.value ? 'text-neon-green' : 'text-gray-400'">{{ doc.label }}</span>
+                </label>
+              </div>
             </div>
-            <div>
-              <textarea
-                v-model="formData.message"
-                rows="4"
-                placeholder="您的消息"
-                class="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-neon-green focus:ring-2 focus:ring-neon-green/20 transition-all resize-none"
-              ></textarea>
+
+            <!-- 导出格式选择 -->
+            <div class="mb-6">
+              <label class="block text-gray-400 mb-3 text-sm">导出格式</label>
+              <div class="flex gap-3">
+                <label
+                  v-for="fmt in exportFormats"
+                  :key="fmt.value"
+                  class="flex-1 flex items-center justify-center px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 border"
+                  :class="exportFormat === fmt.value ? 'bg-cyan-blue/20 border-cyan-blue' : 'bg-dark-surface border-dark-border hover:border-cyan-blue/50'"
+                >
+                  <input
+                    type="radio"
+                    :value="fmt.value"
+                    v-model="exportFormat"
+                    class="sr-only"
+                  />
+                  <span class="text-sm" :class="exportFormat === fmt.value ? 'text-cyan-blue' : 'text-gray-400'">{{ fmt.label }}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 生成按钮 -->
+            <button
+              @click="generateDocument"
+              :disabled="isLoading || !url.trim()"
+              class="w-full py-4 bg-gradient-to-r from-neon-green to-cyan-blue text-dark-bg font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="{ 'hover:scale-[1.02]': !isLoading && url.trim() }"
+            >
+              <svg v-if="isLoading" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>{{ isLoading ? '生成中...' : '生成文档' }}</span>
+            </button>
+        </div>
+      </section>
+
+      <!-- 输出区域 -->
+      <section class="py-8">
+        <div class="card-glass p-6 md:p-8">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div class="flex items-center gap-4">
+              <h2 class="text-xl font-bold text-white">文档输出</h2>
+              <div v-if="documentContent" class="flex gap-2">
+                <button
+                  @click="previewMode = 'raw'"
+                  class="px-3 py-1 text-xs rounded-lg transition-all"
+                  :class="previewMode === 'raw' ? 'bg-neon-green/20 text-neon-green' : 'bg-dark-surface text-gray-400 hover:text-white'"
+                >
+                  原文
+                </button>
+                <button
+                  @click="previewMode = 'rendered'"
+                  class="px-3 py-1 text-xs rounded-lg transition-all"
+                  :class="previewMode === 'rendered' ? 'bg-neon-green/20 text-neon-green' : 'bg-dark-surface text-gray-400 hover:text-white'"
+                >
+                  渲染
+                </button>
+              </div>
             </div>
             <button
-              type="submit"
-              class="w-full px-8 py-4 bg-gradient-to-r from-neon-green to-neon-blue text-gray-900 font-bold rounded-xl hover:from-green-300 hover:to-blue-300 transition-all duration-300 transform hover:scale-105 shadow-neon-green"
+              v-if="documentContent"
+              @click="exportDocument"
+              class="px-4 py-2 bg-transparent border border-neon-green text-neon-green font-semibold rounded-lg hover:bg-neon-green/10 transition-all duration-300 flex items-center gap-2 text-sm"
             >
-              发送消息
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>导出文档</span>
             </button>
-          </form>
+          </div>
+
+          <!-- Markdown预览 - 渲染模式 -->
+          <div v-if="documentContent && previewMode === 'rendered'" class="bg-dark-bg rounded-xl p-4 overflow-x-auto max-h-[60vh] overflow-y-auto">
+            <div class="markdown-body text-gray-300 text-sm" v-html="renderedContent"></div>
+          </div>
+
+          <!-- Markdown预览 - 原文模式 -->
+          <div v-else-if="documentContent" class="bg-dark-bg rounded-xl p-4 overflow-x-auto max-h-[60vh] overflow-y-auto">
+            <pre class="text-gray-300 text-sm whitespace-pre-wrap font-mono">{{ documentContent }}</pre>
+          </div>
+
+          <!-- 空状态提示 -->
+          <div v-if="!documentContent" class="bg-dark-bg/50 rounded-xl p-12 text-center">
+            <div class="w-16 h-16 bg-neon-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-3xl">📄</span>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-300 mb-2">文档输出区域</h3>
+            <p class="text-gray-500 text-sm">输入目标网址并点击"生成文档"按钮，生成的文档内容将在这里显示</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 历史记录区域 -->
+      <section v-if="history.length > 0" class="py-8">
+        <div class="card-glass p-6 md:p-8">
+          <h2 class="text-xl font-bold text-white mb-4">历史记录</h2>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div
+              v-for="item in history"
+              :key="item.document_id"
+              class="bg-dark-bg/50 rounded-xl p-4 hover:bg-dark-bg/80 transition-all cursor-pointer"
+              @click="loadHistoryItem(item)"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-neon-green text-sm font-medium">{{ item.doc_type }}</span>
+                <span class="text-gray-500 text-xs">{{ formatDate(item.created_at) }}</span>
+              </div>
+              <p class="text-gray-400 text-sm truncate">{{ item.url }}</p>
+              <div class="flex items-center gap-2 mt-2">
+                <span v-if="item.from_cache" class="text-xs px-2 py-0.5 bg-cyan-blue/20 text-cyan-blue rounded">缓存</span>
+                <span class="text-xs text-gray-500">{{ item.format }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
 
-    <!-- 底部 -->
-    <footer class="glass py-8">
-      <div class="container mx-auto px-4 text-center text-gray-400">
-        <p>&copy; 2024 TechVision. All rights reserved.</p>
+    <!-- 加载状态提示 -->
+    <div v-if="isLoading" class="fixed inset-0 bg-dark-bg/50 flex items-center justify-center z-50">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-neon-green/30 border-t-neon-green rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-300">正在生成文档，请稍候...</p>
+        <p v-if="loadingProgress" class="text-gray-500 text-sm mt-2">{{ loadingProgress }}</p>
       </div>
-    </footer>
+    </div>
+
+    <!-- 错误提示 -->
+    <div v-if="errorMessage" class="fixed inset-0 bg-dark-bg/50 flex items-center justify-center z-50" @click="errorMessage = ''">
+      <div class="bg-dark-surface rounded-xl p-6 max-w-md mx-4 text-center" @click.stop>
+        <div class="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 class="text-white font-bold mb-2">操作失败</h3>
+        <p class="text-gray-400 text-sm mb-4">{{ errorMessage }}</p>
+        <button
+          @click="errorMessage = ''"
+          class="px-6 py-2 bg-neon-green text-dark-bg font-semibold rounded-lg hover:bg-neon-green/80 transition-colors"
+        >
+          确定
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { marked } from 'marked'
+import apiService from './services/api'
 
-// 表单数据
-const formData = ref({
-  name: '',
-  email: '',
-  message: ''
+const url = ref('')
+const docType = ref('tech_doc')
+const urlError = ref('')
+const isLoading = ref(false)
+const documentContent = ref('')
+const errorMessage = ref('')
+const loadingProgress = ref('')
+const previewMode = ref('raw')
+const history = ref([])
+
+const docTypes = [
+  { value: 'tech_doc', label: '技术文档', icon: '📝' },
+  { value: 'api_doc', label: 'API文档', icon: '🔌' },
+  { value: 'readme', label: 'README', icon: '📖' },
+  { value: 'summary', label: '摘要总结', icon: '📋' }
+]
+
+const exportFormats = [
+  { value: 'md', label: 'Markdown' },
+  { value: 'txt', label: '纯文本' },
+  { value: 'ppt', label: 'PPT' }
+]
+
+const exportFormat = ref('md')
+
+marked.setOptions({
+  breaks: true,
+  gfm: true
 })
 
-// 提交表单
-const submitForm = () => {
-  // 在实际应用中，这里会发送API请求
-  alert('感谢您的留言！我们会尽快回复您。')
+const renderedContent = computed(() => {
+  if (!documentContent.value) return ''
+  return marked(documentContent.value)
+})
 
-  // 重置表单
-  formData.value = {
-    name: '',
-    email: '',
-    message: ''
+onMounted(async () => {
+  try {
+    const result = await apiService.getHistory()
+    history.value = result.history || []
+  } catch (error) {
+    console.error('Failed to load history:', error)
   }
+})
+
+const loadHistoryItem = async (item) => {
+  try {
+    const result = await apiService.getDocument(item.document_id)
+    if (result.content) {
+      documentContent.value = result.content
+      docType.value = item.doc_type
+      exportFormat.value = item.format || 'md'
+    }
+  } catch (error) {
+    errorMessage.value = '加载历史文档失败'
+  }
+}
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const validateUrl = () => {
+  if (!url.value) {
+    urlError.value = ''
+    return
+  }
+  
+  const trimmedUrl = url.value.trim()
+  
+  if (!trimmedUrl.includes('.')) {
+    urlError.value = '请输入有效的网址'
+  } else {
+    urlError.value = ''
+  }
+}
+
+const generateDocument = async () => {
+  if (!url.value) {
+    urlError.value = '请输入网址'
+    return
+  }
+  
+  validateUrl()
+  if (urlError.value) {
+    return
+  }
+
+  isLoading.value = true
+  documentContent.value = ''
+  errorMessage.value = ''
+  loadingProgress.value = '正在验证请求...'
+
+  try {
+    loadingProgress.value = '正在验证URL和文档类型...'
+    const validateResult = await apiService.validateRequest(url.value, docType.value)
+    
+    if (!validateResult.valid) {
+      throw new Error(validateResult.message || '验证失败')
+    }
+
+    loadingProgress.value = '正在启动文档生成...'
+    const generateResult = await apiService.generateDocument(url.value, docType.value, exportFormat.value)
+    
+    if (!generateResult.success) {
+      throw new Error(generateResult.message || '生成启动失败')
+    }
+
+    loadingProgress.value = '正在抓取网页内容...'
+    const documentResult = await apiService.pollDocumentStatus(generateResult.document_id)
+    
+    if (documentResult.status === 'failed') {
+      throw new Error(documentResult.error || '文档生成失败')
+    }
+
+    if (!documentResult.content || documentResult.content.trim() === '') {
+      throw new Error('生成的文档内容为空')
+    }
+
+    documentContent.value = documentResult.content
+
+    const historyResult = await apiService.getHistory()
+    history.value = historyResult.history || []
+
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    isLoading.value = false
+    loadingProgress.value = ''
+  }
+}
+
+const exportDocument = () => {
+  if (!documentContent.value) return
+
+  const formatConfig = {
+    md: { type: 'text/markdown', ext: '.md' },
+    txt: { type: 'text/plain', ext: '.txt' },
+    ppt: { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', ext: '.pptx' }
+  }
+
+  const config = formatConfig[exportFormat.value] || formatConfig.md
+  
+  let content = documentContent.value
+  let filename = `document_${docType.value}_${Date.now()}${config.ext}`
+
+  if (exportFormat.value === 'txt') {
+    content = content.replace(/[#*`>\-\[\]]/g, '').replace(/\n{2,}/g, '\n\n').trim()
+  }
+
+  const blob = new Blob([content], { type: config.type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 </script>
 
-<style>
-/* 全局样式 */
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+<style scoped>
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-/* 自定义滚动条 */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
-
-/* 玻璃拟态效果 */
-.glass {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(30, 41, 59, 0.3);
-}
-
-/* 霓虹效果 */
-.neon-glow {
-  box-shadow: 0 0 15px rgba(52, 211, 153, 0.3), 0 0 30px rgba(52, 211, 153, 0.1);
-}
-
-.neon-glow-blue {
-  box-shadow: 0 0 15px rgba(34, 211, 238, 0.3), 0 0 30px rgba(34, 211, 238, 0.1);
+.animate-gradient {
+  animation: gradient 3s ease infinite;
 }
 </style>
