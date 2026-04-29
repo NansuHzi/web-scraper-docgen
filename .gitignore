@@ -15,12 +15,22 @@ __pycache__/
 .venv/
 venv/
 ENV/
+.tox/
+.coverage
+htmlcov/
+
+# 测试文件和文档
+tests/
+IMPROVEMENT_PLAN.md
+API_DOCUMENTATION.md
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.project
+.classpath
 
 # 操作系统
 .DS_Store
@@ -28,7 +38,17 @@ Thumbs.db
 
 # 日志文件
 *.log
+logs/
 
 # 临时文件
 *.tmp
 *.temp
+
+# 前端依赖和构建
+frontend/vue-project/node_modules/
+frontend/vue-project/dist/
+frontend/vue-project/.dist/
+
+# 数据库
+*.db
+*.sqlite
