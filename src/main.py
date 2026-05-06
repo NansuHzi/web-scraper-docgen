@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from .api.scraper import router as scraper_router
+from .api.search import router as search_router
+from .api.rag import router as rag_router
+from .api.auth import router as auth_router
 from .adapters.rate_limiter import RateLimiter
 from dotenv import load_dotenv
 import os
@@ -36,6 +38,16 @@ app.add_middleware(
 app.add_middleware(RateLimiter, calls=30, period=60)
 
 app.include_router(scraper_router, prefix="/api", tags=["scraper"])
+app.include_router(search_router, prefix="/api", tags=["search"])
+app.include_router(rag_router, prefix="/api", tags=["rag"])
+app.include_router(auth_router, prefix="/api", tags=["auth"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    from .adapters.rag_store import rag_store
+    rag_store.start_cleanup()
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -64,7 +76,10 @@ async def root():
             {"path": "/api/validate", "method": "POST", "description": "验证URL和文档类型"},
             {"path": "/api/generate", "method": "POST", "description": "生成文档"},
             {"path": "/api/document/{document_id}", "method": "GET", "description": "获取生成的文档"},
-            {"path": "/api/scrape", "method": "POST", "description": "提交网页URL生成文档（Legacy）"}
+            {"path": "/api/scrape", "method": "POST", "description": "提交网页URL生成文档（Legacy）"},
+            {"path": "/api/search", "method": "POST", "description": "搜索相关网站"},
+            {"path": "/api/build-rag", "method": "POST", "description": "构建RAG知识库"},
+            {"path": "/api/rag/{rag_id}", "method": "GET", "description": "获取知识库构建状态"},
         ]
     }
 

@@ -4,9 +4,11 @@
 
 ## 功能特性
 
-- 🌐 **网页抓取**: 支持从任意URL抓取内容
+- 🌐 **网页抓取**: 支持从任意URL抓取内容（知乎、微信公众号、CSDN等）
+- 🔍 **多源搜索**: 融合 Bing、搜狗、360、百度等多个搜索引擎，保证结果多样性
 - 🤖 **智能生成**: 基于多智能体架构自动生成专业文档
-- 📄 **多格式导出**: 支持 Markdown、纯文本、PPT 格式
+- � **RAG支持**: 支持构建本地知识库进行检索增强生成
+- �📄 **多格式导出**: 支持 Markdown、纯文本、PPT 格式
 - 📊 **实时预览**: Markdown 原文与渲染预览切换
 - 🕐 **历史记录**: 按用户隔离的文档生成历史
 - ⚡ **缓存优化**: 支持文档缓存，提升响应速度
@@ -15,9 +17,11 @@
 ## 技术栈
 
 ### 后端
-- Python 3.10+
+- Python 3.13+
 - FastAPI
 - CrewAI
+- Playwright
+- ChromaDB (RAG)
 - python-pptx (PPT导出)
 
 ### 前端
@@ -30,9 +34,10 @@
 
 ### 环境要求
 
-- Python >= 3.10
+- Python >= 3.13
 - Node.js >= 20.x
 - npm >= 10.x
+- Playwright 浏览器 (用于网页抓取)
 
 ### 后端安装
 
@@ -40,10 +45,11 @@
 # 进入项目目录
 cd web-scraper-docgen
 
-# 安装依赖
-pip install -r requirements.txt
-# 或使用 uv (推荐)
+# 安装依赖 (使用 uv 推荐)
 uv sync
+
+# 安装 Playwright 浏览器
+playwright install chromium
 
 # 复制环境变量模板
 cp .env.example .env
@@ -63,7 +69,7 @@ npm install
 
 ```bash
 # 启动后端服务 (端口 8000)
-uvicorn src.main:app --host 0.0.0.0 --port 8000
+uv run python -m src.main
 
 # 启动前端开发服务器 (端口 5173)
 cd frontend/vue-project
@@ -78,7 +84,7 @@ cd frontend/vue-project
 npm run build
 
 # 后端部署
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
+uv run python -m src.main --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ## API 接口
@@ -87,6 +93,9 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
 |------|------|------|
 | `/api/validate` | POST | 验证URL和文档类型 |
 | `/api/generate` | POST | 生成文档 |
+| `/api/generate-from-rag` | POST | 基于RAG生成文档 |
+| `/api/build-rag` | POST | 构建RAG知识库 |
+| `/api/search` | POST | 网页搜索 |
 | `/api/document/{id}` | GET | 获取文档 |
 | `/api/history` | GET | 获取历史记录 |
 
@@ -117,13 +126,16 @@ web-scraper-docgen/
 │   │   ├── document_cache.py   # 文档缓存
 │   │   ├── format_adapter.py   # 格式转换
 │   │   ├── rate_limiter.py     # API限流
-│   │   └── session_manager.py  # 会话管理
+│   │   ├── session_manager.py  # 会话管理
+│   │   └── rag_store.py        # RAG存储
 │   ├── agents/             # 智能体定义
 │   │   ├── researcher.py       # 研究智能体
 │   │   ├── writer.py           # 写作智能体
 │   │   └── reviewer.py         # 审查智能体
 │   ├── api/                # API接口
-│   │   └── scraper.py          # 主要API
+│   │   ├── scraper.py          # 文档生成API
+│   │   ├── search.py           # 搜索API
+│   │   └── rag.py              # RAG API
 │   ├── core/               # 核心模块
 │   │   ├── crew.py             # CrewAI配置
 │   │   ├── llm.py              # LLM配置
@@ -132,6 +144,7 @@ web-scraper-docgen/
 ├── frontend/               # 前端代码
 │   └── vue-project/        # Vue项目
 ├── output/                 # 生成的文档输出
+├── .browser_state/         # 浏览器状态文件
 ├── .env.example            # 环境变量模板
 ├── .gitignore              # Git忽略配置
 ├── pyproject.toml          # Python项目配置

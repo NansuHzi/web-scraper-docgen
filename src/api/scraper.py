@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 import asyncio
 import re
 import os
@@ -37,7 +37,7 @@ def validate_url_format(url: str) -> bool:
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
-    except:
+    except Exception:
         return False
 
 
@@ -45,14 +45,17 @@ def validate_research_output(research_task) -> str:
     """验证 Researcher 任务的输出，失败则抛出异常"""
     if hasattr(research_task, 'output') and hasattr(research_task.output, 'raw'):
         output = str(research_task.output.raw)
-    else:
+    elif hasattr(research_task, 'output'):
         output = str(research_task.output)
+    else:
+        output = str(research_task)
     
     if not output or len(output.strip()) < 50:
         raise Exception(f"网页抓取失败：输出内容为空或过短（{len(output)}字符）")
     
     error_keywords = ["抓取失败", "403", "404", "访问被拒绝", "无法访问", 
-                     "任务已终止", "网页内容为空", "无法继续处理"]
+                     "任务已终止", "网页内容为空", "无法继续处理",
+                     "访问异常", "被限制", "权限", "安全验证", "反爬虫"]
     if any(keyword in output for keyword in error_keywords):
         raise Exception(f"网页抓取失败：{output[:200]}")
     
@@ -218,7 +221,19 @@ async def process_document_generation(document_id: str, url: str, doc_type: str,
         research_crew, research_task = create_research_crew(url)
         await asyncio.to_thread(research_crew.kickoff)
         
-        validate_research_output(research_task)
+        # 验证抓取结果，失败则立即终止
+        try:
+            validate_research_output(research_task)
+        except Exception as validation_error:
+            error_msg = str(validation_error)
+            print(f"\n❌ [{document_id}] 网页抓取失败: {error_msg}\n")
+            if document_id in document_store:
+                document_store[document_id].update({
+                    "status": "failed",
+                    "error": error_msg
+                })
+            return  # 立即终止，不继续执行
+        
         print(f"✅ [{document_id}] 阶段1完成: 网页抓取成功\n")
         
         # 阶段2：执行 Writer + Reviewer
@@ -275,7 +290,7 @@ async def get_document(document_id: str, http_request: Request = None):
     if document_id in document_store:
         doc_data = document_store[document_id]
 
-        if session_id and doc_data.get("session_id") != session_id:
+        if session_id and doc_data.get("session_id") not in (session_id, "rag"):
             raise HTTPException(status_code=403, detail="Access denied: document belongs to another user")
 
         if doc_data["status"] == "processing":
@@ -296,7 +311,8 @@ async def get_document(document_id: str, http_request: Request = None):
             return {
                 "document_id": document_id,
                 "content": doc_data["content"],
-                "url": doc_data["url"],
+                "url": doc_data.get("url", ""),
+                "urls": doc_data.get("urls", []),
                 "doc_type": doc_data["doc_type"],
                 "created_at": doc_data["created_at"],
                 "filename": doc_data.get("filename", "")
@@ -341,7 +357,7 @@ async def get_history(limit: int = 20, http_request: Request = None):
 
         history = []
         for doc_id, data in sorted(document_store.items(), key=lambda x: x[1].get('created_at', ''), reverse=True):
-            if data.get("session_id") == session_id:
+            if data.get("session_id") in (session_id, "rag"):
                 history.append({
                     "document_id": doc_id,
                     "url": data.get("url", ""),

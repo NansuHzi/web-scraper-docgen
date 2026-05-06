@@ -16,10 +16,3 @@ qwen_llm = LLM(
     base_url=os.getenv("QWEN_BASE_URL"),
     provider="openai",  # 通义千问兼容 OpenAI 接口
 )
-
-glm_llm = LLM(
-    model="glm-4-flash",
-    api_key=os.getenv("ANTHROPIC_AUTH_API"),
-    base_url=os.getenv("ANTHROPIC_BASE_URL"),
-    provider="openai",  # 智谱兼容 OpenAI 接口
-)

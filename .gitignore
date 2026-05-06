@@ -1,12 +1,19 @@
-# 环境变量文件（包含敏感信息）
+# ==================== 敏感信息 ====================
 .env
 .env.local
 .env.production
+.env.*
+.secrets/
+*.key
+*.pem
 
-# 输出目录（生成的文档）
+# ==================== 输出目录 ====================
 output/
+dist/
+build/
+*.egg-info/
 
-# Python
+# ==================== Python ====================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,37 +25,83 @@ ENV/
 .tox/
 .coverage
 htmlcov/
+.pytest_cache/
+.cache/
+nosetests.xml
+coverage.xml
 
-# 测试文件和文档
+# ==================== 测试和文档 ====================
 tests/
 IMPROVEMENT_PLAN.md
 API_DOCUMENTATION.md
+FEATURE_REQUIREMENT_RAG.md
+PROJECT_GUIDE.md
+CLAUDE.md
 
-# IDE
+# ==================== IDE ====================
 .idea/
 .vscode/
 *.swp
 *.swo
 .project
 .classpath
+.settings/
+*.iml
+*.ipr
+*.iws
 
-# 操作系统
+# ==================== 操作系统 ====================
 .DS_Store
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# 日志文件
+# ==================== 日志文件 ====================
 *.log
 logs/
+*.log.*
+*.trace
 
-# 临时文件
+# ==================== 临时文件 ====================
 *.tmp
 *.temp
+*.bak
+*.backup
+*.~*
+*.sw?
 
-# 前端依赖和构建
+# ==================== 前端 ====================
 frontend/vue-project/node_modules/
 frontend/vue-project/dist/
 frontend/vue-project/.dist/
+frontend/vue-project/build/
+frontend/vue-project/.nuxt/
+frontend/vue-project/.next/
+frontend/vue-project/npm-debug.log
+frontend/vue-project/yarn-error.log
+frontend/vue-project/package-lock.json
+frontend/vue-project/yarn.lock
 
-# 数据库
+# ==================== 数据库 ====================
 *.db
 *.sqlite
+*.sqlite3
+*.mdb
+
+# ==================== 缓存和索引 ====================
+*.idx
+*.index
+.cache/
+.parcel-cache/
+.eslintcache
+
+# ==================== 浏览器数据 ====================
+.browser_data/
+.browser_state/
+.playwright-mcp/
+.claude/
+
+# ==================== 其他 ====================
+*.pid
+*.socket
+home-page.png
