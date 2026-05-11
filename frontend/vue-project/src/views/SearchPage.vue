@@ -71,6 +71,43 @@
         </div>
       </section>
 
+      <!-- Existing RAG Stores -->
+      <section v-if="ragStores.length > 0" class="pt-10 animate-slide-up stagger-2">
+        <div class="card-glass p-6 md:p-8">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-semibold text-white tracking-tight">
+              已有知识库
+              <span class="text-sm font-normal text-muted ml-1.5">{{ ragStores.length }} 个</span>
+            </h2>
+            <button @click="loadRagStores" class="btn-outline text-xs">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>刷新</span>
+            </button>
+          </div>
+          <div class="space-y-2">
+            <div v-for="store in ragStores" :key="store.rag_id"
+              class="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all"
+            >
+              <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full shrink-0"
+                  :class="store.status === 'ready' ? 'bg-neon-green' : store.status === 'building' ? 'bg-amber-warm animate-pulse' : 'bg-red-400'"
+                />
+                <div>
+                  <p class="text-sm text-white font-mono">{{ store.rag_id }}</p>
+                  <p class="text-xs text-muted">{{ store.url_count }} URL · {{ store.chunk_count }} 块 · {{ formatTime(store.created_at) }}</p>
+                </div>
+              </div>
+              <button v-if="store.status === 'ready'" @click="generateFromRagStore(store)"
+                class="btn-outline text-xs flex items-center gap-1"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>生成文档</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Results -->
       <section v-if="searchResults.length > 0" class="pt-10 animate-slide-up stagger-2">
         <div class="card-glass p-6 md:p-8">
@@ -249,27 +286,83 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { marked } from 'marked'
 import apiService from '../services/api'
 
-const query = ref('')
-const maxResults = ref(10)
+// 状态持久化键名
+const STORAGE_KEY = 'docgen_searchpage_state'
+
+// 从sessionStorage恢复状态
+const loadState = () => {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const data = JSON.parse(saved)
+      return {
+        query: data.query || '',
+        maxResults: data.maxResults || 10,
+        searchResults: data.searchResults || [],
+        selectedIndices: data.selectedIndices || [],
+        docType: data.docType || 'tech_doc',
+        integrationMode: data.integrationMode || 'merge',
+        exportFormat: data.exportFormat || 'md',
+        documentContent: data.documentContent || '',
+        previewMode: data.previewMode || 'raw',
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load state from sessionStorage:', e)
+  }
+  return { query: '', maxResults: 10, searchResults: [], selectedIndices: [], docType: 'tech_doc', integrationMode: 'merge', exportFormat: 'md', documentContent: '', previewMode: 'raw' }
+}
+
+const savedState = loadState()
+
+const query = ref(savedState.query)
+const maxResults = ref(savedState.maxResults)
 const isSearching = ref(false)
-const hasSearched = ref(false)
-const searchResults = ref([])
-const selectedIndices = ref(new Set())
-const docType = ref('tech_doc')
-const integrationMode = ref('merge')
-const exportFormat = ref('md')
+const hasSearched = ref(savedState.searchResults.length > 0)
+const searchResults = ref(savedState.searchResults)
+const selectedIndices = ref(new Set(savedState.selectedIndices))
+const docType = ref(savedState.docType)
+const integrationMode = ref(savedState.integrationMode)
+const exportFormat = ref(savedState.exportFormat)
 const isGenerating = ref(false)
 const generatingProgress = ref('')
 const errorMessage = ref('')
-const documentContent = ref('')
-const previewMode = ref('raw')
-const selectedCount = ref(0)
+const documentContent = ref(savedState.documentContent)
+const previewMode = ref(savedState.previewMode)
+const selectedCount = ref(selectedIndices.value.size)
 const isLoggingIn = ref(false)
 const zhihuLoggedIn = ref(false)
+const ragStores = ref([])
+
+// 监听状态变化并保存
+const saveState = () => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      query: query.value,
+      maxResults: maxResults.value,
+      searchResults: searchResults.value,
+      selectedIndices: Array.from(selectedIndices.value),
+      docType: docType.value,
+      integrationMode: integrationMode.value,
+      exportFormat: exportFormat.value,
+      documentContent: documentContent.value,
+      previewMode: previewMode.value,
+    }))
+  } catch (e) {
+    console.warn('Failed to save state to sessionStorage:', e)
+  }
+}
+
+watch([query, maxResults, searchResults, docType, integrationMode, exportFormat, documentContent, previewMode], saveState, { deep: true })
+// 监听selectedIndices变化
+watch(selectedIndices, () => {
+  selectedCount.value = selectedIndices.value.size
+  saveState()
+}, { deep: true })
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -284,7 +377,45 @@ const checkZhihuLoginState = async () => {
 
 onMounted(() => {
   checkZhihuLoginState()
+  loadRagStores()
 })
+
+const formatTime = (dateStr) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+const loadRagStores = async () => {
+  try {
+    const resp = await fetch('/api/rag/list')
+    if (resp.ok) {
+      const data = await resp.json()
+      ragStores.value = data.stores || []
+    }
+  } catch (e) {
+    console.warn('Failed to load RAG stores:', e)
+  }
+}
+
+const generateFromRagStore = async (store) => {
+  isGenerating.value = true
+  documentContent.value = ''
+  errorMessage.value = ''
+  generatingProgress.value = '基于已有知识库生成文档...'
+
+  try {
+    const gr = await apiService.generateFromRag(store.rag_id, docType.value, 'merge', exportFormat.value, query.value || '综合文档')
+    if (!gr.success) throw new Error(gr.message || '文档生成启动失败')
+    const doc = await apiService.pollDocumentStatus(gr.document_id)
+    documentContent.value = doc.content || ''
+    await loadRagStores()
+  } catch (e) {
+    errorMessage.value = e.message
+  } finally {
+    isGenerating.value = false
+    generatingProgress.value = ''
+  }
+}
 
 const loginZhihu = async () => {
   if (isLoggingIn.value) return
@@ -376,8 +507,9 @@ const generateFromSelected = async () => {
     const br = await apiService.buildRag(urls, docType.value)
     if (!br.success) throw new Error(br.message || '启动知识库构建失败')
 
-    generatingProgress.value = `知识库构建中（${br.sources_count} 来源）...`
+    generatingProgress.value = `知识库构建中（${br.sources_count} 来源），正在抓取并向量化...`
     const rr = await apiService.pollRagStatus(br.rag_id)
+    await loadRagStores()
 
     if (integrationMode.value === 'merge') {
       generatingProgress.value = '合并模式：基于知识库生成综合文档...'

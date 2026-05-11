@@ -2,10 +2,19 @@
 .env
 .env.local
 .env.production
-.env.*
+.env.*.local
 .secrets/
 *.key
 *.pem
+
+# ==================== 私有模块（不上传 GitHub）====================
+src/bot/
+src/api/xianyu.py
+src/api/database.py
+frontend/vue-project/src/views/XianyuPage.vue
+frontend/vue-project/src/views/DatabasePage.vue
+data/
+.firecrawl/
 
 # ==================== 输出目录 ====================
 output/
@@ -29,14 +38,6 @@ htmlcov/
 .cache/
 nosetests.xml
 coverage.xml
-
-# ==================== 测试和文档 ====================
-tests/
-IMPROVEMENT_PLAN.md
-API_DOCUMENTATION.md
-FEATURE_REQUIREMENT_RAG.md
-PROJECT_GUIDE.md
-CLAUDE.md
 
 # ==================== IDE ====================
 .idea/
@@ -69,14 +70,13 @@ logs/
 *.backup
 *.~*
 *.sw?
+_fix_*.py
 
 # ==================== 前端 ====================
 frontend/vue-project/node_modules/
 frontend/vue-project/dist/
 frontend/vue-project/.dist/
 frontend/vue-project/build/
-frontend/vue-project/.nuxt/
-frontend/vue-project/.next/
 frontend/vue-project/npm-debug.log
 frontend/vue-project/yarn-error.log
 frontend/vue-project/package-lock.json
@@ -100,8 +100,3 @@ frontend/vue-project/yarn.lock
 .browser_state/
 .playwright-mcp/
 .claude/
-
-# ==================== 其他 ====================
-*.pid
-*.socket
-home-page.png

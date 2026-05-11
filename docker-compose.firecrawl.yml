@@ -1,0 +1,62 @@
+services:
+  firecrawl:
+    image: firecrawl/firecrawl-app:latest
+    container_name: firecrawl-local
+    ports:
+      - "3002:3002"
+      - "9002:9002"
+    environment:
+      - USE_DB_AUTHENTICATION=false
+      - NUM_WORKERS=4
+      - PORT=3002
+      - REDIS_URL=redis://redis-firecrawl:6379
+      - PLAYWRIGHT_MICROSERVICE_URL=http://playwright-firecrawl:3000
+      - SELF_HOSTED=true
+      - LOG_LEVEL=info
+    depends_on:
+      redis-firecrawl:
+        condition: service_healthy
+      playwright-firecrawl:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - firecrawl-net
+
+  redis-firecrawl:
+    image: redis:7-alpine
+    container_name: firecrawl-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - firecrawl-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - firecrawl-net
+
+  playwright-firecrawl:
+    image: browserless/chrome:latest
+    container_name: firecrawl-playwright
+    ports:
+      - "3000:3000"
+    environment:
+      - MAX_CONCURRENT_SESSIONS=8
+      - CONNECTION_TIMEOUT=600000
+      - PREBOOT_CHROME=true
+      - KEEP_ALIVE=true
+      - DEFAULT_BLOCK_ADS=true
+      - DEFAULT_HEADLESS=true
+    restart: unless-stopped
+    networks:
+      - firecrawl-net
+
+volumes:
+  firecrawl-redis-data:
+
+networks:
+  firecrawl-net:
+    driver: bridge

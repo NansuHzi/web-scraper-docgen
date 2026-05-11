@@ -4,12 +4,79 @@ import logging
 import re
 import os
 import json
+import atexit
+import asyncio
+import threading
 import requests
 
 logger = logging.getLogger(__name__)
 
 _BROWSER_STATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.browser_state')
 ZHIHU_STATE_FILE = os.path.join(_BROWSER_STATE_DIR, 'zhihu_state.json')
+
+# Shared HTTP session with connection pooling
+_http_session = None
+
+
+def _get_http_session() -> requests.Session:
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=50, max_retries=1)
+        _http_session.mount('https://', adapter)
+        _http_session.mount('http://', adapter)
+    return _http_session
+
+
+# Persistent browser pool to avoid ~3s browser launch per request
+_browser_instance = None
+_browser_lock = threading.Lock()
+_browser_usage_count = 0
+_browser_max_uses = 50  # Recycle browser after N uses to prevent memory leaks
+
+
+async def _get_browser():
+    """Get or create a persistent browser instance (lazy init, thread-safe)"""
+    global _browser_instance, _browser_usage_count
+    with _browser_lock:
+        _browser_usage_count += 1
+        if _browser_instance is None or _browser_usage_count > _browser_max_uses:
+            if _browser_instance is not None:
+                try:
+                    await _browser_instance.close()
+                except Exception:
+                    pass
+            from playwright.async_api import async_playwright
+            _pw = await async_playwright().start()
+            _browser_instance = await _pw.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-infobars',
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor',
+                    '--disable-gpu',
+                    '--single-process',
+                ],
+            )
+            _browser_usage_count = 0
+        return _browser_instance
+
+
+def _cleanup_browser():
+    """Cleanup browser on shutdown"""
+    global _browser_instance
+    if _browser_instance is not None:
+        try:
+            asyncio.get_event_loop().run_until_complete(_browser_instance.close())
+        except Exception:
+            pass
+        _browser_instance = None
+
+
+atexit.register(_cleanup_browser)
 
 ANTI_SCRAPING_SITES = {
     "zhihu.com": {
@@ -155,78 +222,65 @@ def _load_zhihu_cookies() -> str:
 
 
 async def _run_playwright_async(params: dict) -> str:
-    """使用Playwright异步API抓取网页"""
+    """使用Playwright异步API抓取网页（复用浏览器实例）"""
     url = params["url"]
-    max_chars = params.get("max_chars", 5000)
+    max_chars = params.get("max_chars", 3000)
     lang = params.get("lang", "en")
     zhihu_state_file = params.get("zhihu_state_file", "")
-
-    from playwright.async_api import async_playwright
 
     site_config = _get_site_config(url)
     is_zhihu = _is_zhihu_url(url)
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-infobars',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-            ],
+    browser = await _get_browser()
+
+    if is_zhihu and zhihu_state_file and os.path.exists(zhihu_state_file):
+        context = await browser.new_context(
+            storage_state=zhihu_state_file,
+            **BROWSER_CONTEXT_OPTIONS,
         )
+    else:
+        context = await browser.new_context(**BROWSER_CONTEXT_OPTIONS)
 
-        try:
-            if is_zhihu and zhihu_state_file and os.path.exists(zhihu_state_file):
-                context = await browser.new_context(
-                    storage_state=zhihu_state_file,
-                    **BROWSER_CONTEXT_OPTIONS,
-                )
-            else:
-                context = await browser.new_context(**BROWSER_CONTEXT_OPTIONS)
+    try:
+        page = await context.new_page()
+        await page.set_viewport_size({"width": 1920, "height": 1080})
 
-            page = await context.new_page()
-            await page.set_viewport_size({"width": 1920, "height": 1080})
+        if site_config and site_config.get("cookie_consent"):
+            try:
+                await page.goto(url, wait_until='domcontentloaded', timeout=15000)
+                await page.wait_for_timeout(1000)
 
-            if site_config and site_config.get("cookie_consent"):
                 try:
-                    await page.goto(url, wait_until='domcontentloaded', timeout=30000)
-                    await page.wait_for_timeout(3000)
+                    cookie_btn = await page.query_selector('button:has-text("同意")')
+                    if cookie_btn:
+                        await cookie_btn.click()
+                        await page.wait_for_timeout(500)
+                except Exception:
+                    pass
 
-                    try:
-                        cookie_btn = await page.query_selector('button:has-text("同意")')
-                        if cookie_btn:
-                            await cookie_btn.click()
-                            await page.wait_for_timeout(1000)
-                    except Exception:
-                        pass
+                current_url = page.url
+                if "signin" in current_url or "login" in current_url:
+                    if is_zhihu:
+                        logger.warning(f"Zhihu redirected to login page. URL: {current_url}")
+                    await page.go_back()
+                    await page.wait_for_timeout(1000)
 
-                    current_url = page.url
-                    if "signin" in current_url or "login" in current_url:
-                        if is_zhihu:
-                            logger.warning(f"Zhihu redirected to login page. Login state may be expired. URL: {current_url}")
-                        await page.go_back()
-                        await page.wait_for_timeout(2000)
+                await page.wait_for_load_state('domcontentloaded', timeout=8000)
+                await page.wait_for_timeout(500)
 
-                    await page.wait_for_load_state('networkidle', timeout=15000)
-                    await page.wait_for_timeout(2000)
+            except Exception as e:
+                logger.warning(f"Cookie consent failed: {e}")
+                await page.goto(url, wait_until='domcontentloaded', timeout=15000)
+                await page.wait_for_timeout(1000)
+        else:
+            await page.goto(url, wait_until='domcontentloaded', timeout=15000)
+            await page.wait_for_timeout(1000)
 
-                except Exception as e:
-                    logger.warning(f"Cookie consent handling failed: {e}")
-                    await page.goto(url, wait_until='networkidle', timeout=30000)
-                    await page.wait_for_timeout(2000)
-            else:
-                await page.goto(url, wait_until='networkidle', timeout=30000)
-                await page.wait_for_timeout(2000)
+        html_content = await page.content()
+        title = await page.title()
 
-            html_content = await page.content()
-            title = await page.title()
-
-        finally:
-            await browser.close()
+    finally:
+        await context.close()
 
     soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -288,10 +342,10 @@ async def _run_playwright_async(params: dict) -> str:
     return f"# {title}\n\n{cleaned_text}"
 
 
-def _scrape_with_requests(url: str, max_chars: int = 5000, lang: str = "en") -> str:
-    """使用纯HTTP请求抓取网页（备选方案）"""
+def _scrape_with_requests(url: str, max_chars: int = 3000, lang: str = "en") -> str:
+    """使用纯HTTP请求抓取网页（备选方案，复用连接池）"""
     zhihu_cookies = _load_zhihu_cookies()
-    
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
@@ -308,18 +362,18 @@ def _scrape_with_requests(url: str, max_chars: int = 5000, lang: str = "en") -> 
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
     }
-    
+
     if zhihu_cookies:
         headers["Cookie"] = zhihu_cookies
-    
+
     try:
-        session = requests.Session()
+        session = _get_http_session()
         session.headers.update(headers)
-        
-        response = session.get(url, timeout=30)
+
+        response = session.get(url, timeout=15)
         response.encoding = response.apparent_encoding
         html_content = response.text
-        
+
         if len(html_content) < 500:
             raise Exception(f"响应内容过短（{len(html_content)}字符），可能被反爬虫拦截")
         
@@ -361,8 +415,8 @@ def _scrape_with_requests(url: str, max_chars: int = 5000, lang: str = "en") -> 
         raise Exception(f"HTTP请求抓取失败: {str(e)}")
 
 
-async def scrape_url_content(url: str, max_chars: int | None = 5000, lang: str = "en") -> str:
-    """异步抓取网页内容（支持JavaScript动态渲染）"""
+async def scrape_url_content(url: str, max_chars: int | None = 3000, lang: str = "en") -> str:
+    """异步抓取网页内容（复用浏览器，支持JS渲染）"""
     params = {
         "url": url,
         "max_chars": max_chars,
@@ -374,4 +428,4 @@ async def scrape_url_content(url: str, max_chars: int | None = 5000, lang: str =
         return await _run_playwright_async(params)
     except Exception as e:
         logger.warning(f"Playwright抓取失败: {e}，尝试使用HTTP请求备选方案")
-        return _scrape_with_requests(url, max_chars or 5000, lang)
+        return _scrape_with_requests(url, max_chars or 3000, lang)

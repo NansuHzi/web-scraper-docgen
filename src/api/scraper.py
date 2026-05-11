@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import asyncio
+import logging
 import re
 import os
 from datetime import datetime
@@ -9,11 +11,17 @@ from urllib.parse import urlparse
 from ..core.crew import create_research_crew, create_document_crew
 from ..adapters.document_cache import document_cache
 from ..adapters.session_manager import session_manager
+from ..core.llm import qwen_llm
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 document_store = {}
+
+_scheduler_semaphore = asyncio.Semaphore(2)
+_topic_semaphore = asyncio.Semaphore(1)
 
 
 class ValidateRequest(BaseModel):
@@ -198,87 +206,83 @@ async def generate_document(request: GenerateRequest, http_request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to start document generation: {str(e)}")
 
 
-async def process_document_generation(document_id: str, url: str, doc_type: str, format_type: str = "md"):
-    """异步处理文档生成"""
-    try:
-        from ..adapters.format_adapter import FormatAdapter
-        
-        # 更新状态
-        if document_id in document_store:
-            document_store[document_id]["status"] = "processing"
-        
-        # 映射文档类型到中文
-        doc_type_mapping = {
-            "tech_doc": "技术文档",
-            "api_doc": "API文档",
-            "readme": "README",
-            "summary": "摘要总结"
-        }
-        document_type_cn = doc_type_mapping.get(doc_type, "技术文档")
-        
-        # 阶段1：执行 Researcher
-        print(f"\n🔍 [{document_id}] 阶段1: 正在抓取网页...")
-        research_crew, research_task = create_research_crew(url)
-        await asyncio.to_thread(research_crew.kickoff)
-        
-        # 验证抓取结果，失败则立即终止
+async def process_document_generation(document_id: str, url: str, doc_type: str, format_type: str = "md", use_qwen: bool = False):
+    async with _scheduler_semaphore:
         try:
-            validate_research_output(research_task)
-        except Exception as validation_error:
-            error_msg = str(validation_error)
-            print(f"\n❌ [{document_id}] 网页抓取失败: {error_msg}\n")
+            from ..adapters.format_adapter import FormatAdapter
+
+            if document_id in document_store:
+                document_store[document_id]["status"] = "processing"
+
+            doc_type_mapping = {
+                "tech_doc": "技术文档",
+                "api_doc": "API文档",
+                "readme": "README",
+                "summary": "摘要总结"
+            }
+            document_type_cn = doc_type_mapping.get(doc_type, "技术文档")
+
+            llm = qwen_llm if use_qwen else None
+
+            llm_label = "[千问]" if use_qwen else "[DeepSeek]"
+            logger.info("[%s] 阶段1: 正在抓取网页... %s", document_id, llm_label)
+            research_crew, research_task = create_research_crew(url, llm=llm)
+            await asyncio.to_thread(research_crew.kickoff)
+
+            try:
+                validate_research_output(research_task)
+            except Exception as validation_error:
+                error_msg = str(validation_error)
+                logger.error("[%s] 网页抓取失败: %s", document_id, error_msg)
+                if document_id in document_store:
+                    document_store[document_id].update({
+                        "status": "failed",
+                        "error": error_msg
+                    })
+                return
+
+            logger.info("[%s] 阶段1完成: 网页抓取成功", document_id)
+
+            logger.info("[%s] 阶段2: 正在生成文档... %s", document_id, llm_label)
+            document_crew = create_document_crew(url, document_type_cn, research_task, llm=llm)
+            final_result = await asyncio.to_thread(document_crew.kickoff)
+            logger.info("[%s] 阶段2完成: 文档生成成功", document_id)
+
+            if hasattr(final_result, 'raw'):
+                final_doc = final_result.raw
+            elif hasattr(final_result, 'tasks_output') and len(final_result.tasks_output) > 0:
+                last_task = final_result.tasks_output[-1]
+                final_doc = last_task.raw if hasattr(last_task, 'raw') else str(last_task)
+            else:
+                final_doc = str(final_result)
+
+            if not final_doc or len(final_doc.strip()) == 0:
+                raise Exception("生成的文档为空，请检查 Agent 配置和 API Key")
+
+            document_cache.set(url, doc_type, final_doc)
+            logger.info("[%s] 文档已缓存 | URL: %s | 类型: %s", document_id, url, doc_type)
+
+            adapter = FormatAdapter()
+            filename_without_ext = generate_filename(final_doc, url).replace(".md", "")
+            saved_file = adapter.export(final_doc, filename_without_ext, format_type)
+
+            if document_id in document_store:
+                document_store[document_id].update({
+                    "status": "completed",
+                    "content": final_doc,
+                    "filename": os.path.basename(saved_file),
+                    "saved_file": saved_file
+                })
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error("[%s] 任务执行失败: %s", document_id, error_msg)
+
             if document_id in document_store:
                 document_store[document_id].update({
                     "status": "failed",
                     "error": error_msg
                 })
-            return  # 立即终止，不继续执行
-        
-        print(f"✅ [{document_id}] 阶段1完成: 网页抓取成功\n")
-        
-        # 阶段2：执行 Writer + Reviewer
-        print(f"📝 [{document_id}] 阶段2: 正在生成文档...")
-        document_crew = create_document_crew(url, document_type_cn, research_task)
-        final_result = await asyncio.to_thread(document_crew.kickoff)
-        print(f"✅ [{document_id}] 阶段2完成: 文档生成成功\n")
-        
-        # 提取最终文档内容
-        if hasattr(final_result, 'raw'):
-            final_doc = final_result.raw
-        elif hasattr(final_result, 'tasks_output') and len(final_result.tasks_output) > 0:
-            last_task = final_result.tasks_output[-1]
-            final_doc = last_task.raw if hasattr(last_task, 'raw') else str(last_task)
-        else:
-            final_doc = str(final_result)
-        
-        if not final_doc or len(final_doc.strip()) == 0:
-            raise Exception("生成的文档为空，请检查 Agent 配置和 API Key")
-
-        document_cache.set(url, doc_type, final_doc)
-        print(f"💾 [{document_id}] 文档已缓存 | URL: {url} | 类型: {doc_type}")
-
-        adapter = FormatAdapter()
-        filename_without_ext = generate_filename(final_doc, url).replace(".md", "")
-        saved_file = adapter.export(final_doc, filename_without_ext, format_type)
-
-        # 更新存储
-        if document_id in document_store:
-            document_store[document_id].update({
-                "status": "completed",
-                "content": final_doc,
-                "filename": os.path.basename(saved_file),
-                "saved_file": saved_file
-            })
-        
-    except Exception as e:
-        error_msg = str(e)
-        print(f"\n❌ [{document_id}] 任务执行失败: {error_msg}\n")
-        
-        if document_id in document_store:
-            document_store[document_id].update({
-                "status": "failed",
-                "error": error_msg
-            })
 
 
 @router.get("/document/{document_id}")
@@ -342,7 +346,7 @@ async def get_document(document_id: str, http_request: Request = None):
                 "status": "completed"
             }
     except Exception as e:
-        print(f"Failed to read from filesystem: {e}")
+        logger.error("Failed to read from filesystem: %s", e)
     
     # 如果都找不到，返回错误
     raise HTTPException(status_code=404, detail="Document not found")
@@ -378,17 +382,17 @@ async def get_history(limit: int = 20, http_request: Request = None):
 async def scrape_webpage(request: ScrapingRequest):
     """处理网页抓取和文档生成请求（Legacy endpoint）"""
     try:
-        print("\n🔍 阶段1: 正在抓取网页...")
+        logger.info("阶段1: 正在抓取网页...")
         research_crew, research_task = create_research_crew(request.url)
         await asyncio.to_thread(research_crew.kickoff)
         
         validate_research_output(research_task)
-        print("✅ 阶段1完成: 网页抓取成功\n")
+        logger.info("阶段1完成: 网页抓取成功")
         
-        print("📝 阶段2: 正在生成文档...")
+        logger.info("阶段2: 正在生成文档...")
         document_crew = create_document_crew(request.url, request.document_type, research_task)
         final_result = await asyncio.to_thread(document_crew.kickoff)
-        print("✅ 阶段2完成: 文档生成成功\n")
+        logger.info("阶段2完成: 文档生成成功")
         
         if hasattr(final_result, 'raw'):
             final_doc = final_result.raw
@@ -419,5 +423,131 @@ async def scrape_webpage(request: ScrapingRequest):
         
     except Exception as e:
         error_msg = str(e)
-        print(f"\n❌ 任务执行失败: {error_msg}\n")
+        logger.error("任务执行失败: %s", error_msg)
         raise HTTPException(status_code=500, detail=f"处理失败: {error_msg}")
+
+
+@router.get("/document/{document_id}/download")
+async def download_document(document_id: str):
+    doc_data = document_store.get(document_id, {})
+
+    if doc_data.get("status") == "completed":
+        saved_file = doc_data.get("saved_file", "")
+        if saved_file and Path(saved_file).exists():
+            return FileResponse(
+                path=saved_file,
+                filename=Path(saved_file).name,
+                media_type="text/markdown",
+            )
+
+        content = doc_data.get("content", "")
+        filename = doc_data.get("filename", f"{document_id}.md")
+        if content:
+            import tempfile
+            tmp = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            )
+            tmp.write(content)
+            tmp.close()
+            return FileResponse(
+                path=tmp.name,
+                filename=filename,
+                media_type="text/markdown",
+            )
+
+    output_dir = Path(__file__).parent.parent.parent / "output"
+
+    timestamp = document_id.replace("doc_", "").replace("task_", "")
+    try:
+        ts_int = int(timestamp)
+        files = list(output_dir.glob("*.md"))
+        for f in files:
+            if str(ts_int) in f.name:
+                return FileResponse(
+                    path=str(f),
+                    filename=f.name,
+                    media_type="text/markdown",
+                )
+    except (ValueError, Exception):
+        pass
+
+    if document_id.startswith("task_"):
+        files = sorted(output_dir.glob("*.md"), key=lambda f: f.stat().st_mtime, reverse=True)
+        if files:
+            return FileResponse(
+                path=str(files[0]),
+                filename=files[0].name,
+                media_type="text/markdown",
+            )
+
+    raise HTTPException(status_code=404, detail="文档文件未找到")
+
+
+@router.get("/payment/pending")
+async def get_pending_payments():
+    """获取待验证付款的订单列表"""
+    from ..bot.database import bot_db
+    
+    pending_orders = bot_db.get_orders_by_payment("unpaid")
+    return {"orders": pending_orders}
+
+
+@router.post("/payment/verify")
+async def verify_payment(order_id: str):
+    """管理员手动验证付款并开始处理任务"""
+    from ..bot.database import bot_db
+    from ..bot.session_manager import session_manager
+    
+    order = bot_db.get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    
+    if order["payment_status"] != "unpaid":
+        raise HTTPException(status_code=400, detail="订单状态不是待付款")
+    
+    # 更新付款状态
+    bot_db.update_order_payment(order_id, "paid")
+    
+    # 尝试获取会话并继续处理
+    user_id = order["user_id"]
+    session = session_manager.get(user_id)
+    
+    if session and session.pending_order:
+        # 创建任务
+        from ..worker.dispatcher import task_dispatcher
+        from ..worker.models import TaskType, TaskPriority
+        
+        urls = session.pending_order.urls
+        task_ids = []
+        for url in urls:
+            task = await task_dispatcher.submit(
+                task_type=TaskType.GENERATE_DOCUMENT,
+                payload={
+                    "url": url,
+                    "tier": session.pending_order.tier,
+                    "format": session.pending_order.format,
+                    "use_qwen": session.pending_order.use_qwen,
+                },
+                priority=TaskPriority.NORMAL,
+                user_id=user_id,
+                session_id=user_id,
+            )
+            task_ids.append(task.id)
+        
+        bot_db.update_order_task_ids(order_id, task_ids)
+        session_manager.add_task(user_id, task_ids)
+        session.pending_order = None
+        session_manager.update_state(user_id, session_manager.SessionState.PROCESSING)
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "task_ids": task_ids,
+            "message": "付款已验证，任务已创建"
+        }
+    
+    return {
+        "success": True,
+        "order_id": order_id,
+        "message": "付款已验证，但未找到待处理会话"
+    }

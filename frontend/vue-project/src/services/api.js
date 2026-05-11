@@ -269,6 +269,178 @@ class ApiService {
       throw error
     }
   }
+
+  // Scheduler endpoints
+  async getSchedulerJobs() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get scheduler jobs error:', error)
+      throw error
+    }
+  }
+
+  async createSchedulerJob(data) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Create scheduler job error:', error)
+      throw error
+    }
+  }
+
+  async updateSchedulerJob(jobId, data) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Update scheduler job error:', error)
+      throw error
+    }
+  }
+
+  async deleteSchedulerJob(jobId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs/${jobId}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Delete scheduler job error:', error)
+      throw error
+    }
+  }
+
+  async triggerSchedulerJob(jobId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs/${jobId}/trigger`, {
+        method: 'POST'
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Trigger scheduler job error:', error)
+      throw error
+    }
+  }
+
+  async getSchedulerJobHistory(jobId, limit = 20) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/jobs/${jobId}/history?limit=${limit}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get scheduler job history error:', error)
+      throw error
+    }
+  }
+
+  async getSchedulerStats() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/scheduler/stats`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get scheduler stats error:', error)
+      throw error
+    }
+  }
+
+  // Topic endpoints
+  async getHotTopics(source = 'all') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/topics/hot?source=${source}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get hot topics error:', error)
+      throw error
+    }
+  }
+
+  async getWeiboHotTopics() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/topics/hot/weibo`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get Weibo hot topics error:', error)
+      throw error
+    }
+  }
+
+  async getZhihuHotTopics() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/topics/hot/zhihu`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Get Zhihu hot topics error:', error)
+      throw error
+    }
+  }
+
+  async analyzeTopics(topics) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/topics/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topics })
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Analyze topics error:', error)
+      throw error
+    }
+  }
 }
 
 export default new ApiService()

@@ -13,6 +13,31 @@ const router = createRouter({
       name: 'search',
       component: () => import('@/views/SearchPage.vue'),
     },
+    {
+      path: '/scheduler',
+      name: 'scheduler',
+      component: () => import('@/views/SchedulerPage.vue'),
+    },
+    {
+      path: '/topics',
+      name: 'topics',
+      component: () => import('@/views/TopicsPage.vue'),
+    },
+    {
+      path: '/monitor',
+      name: 'monitor',
+      component: () => import('@/views/MonitorPage.vue'),
+    },
+    {
+      path: '/crawler',
+      name: 'crawler',
+      component: () => import('@/views/CrawlerPage.vue'),
+    },
+    {
+      path: '/tasks',
+      name: 'tasks',
+      component: () => import('@/views/TaskQueuePage.vue'),
+    },
   ],
 })
 

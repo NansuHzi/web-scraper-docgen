@@ -1,7 +1,10 @@
 import hashlib
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 import threading
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentCache:
@@ -85,9 +88,9 @@ class DocumentCache:
             try:
                 cleaned = self.cleanup_expired()
                 if cleaned > 0:
-                    print(f"缓存清理: 删除{cleaned}个过期条目")
+                    logger.info("缓存清理: 删除%d个过期条目", cleaned)
             except Exception as e:
-                print(f"缓存清理错误: {e}")
+                logger.error("缓存清理错误: %s", e)
             import time
             time.sleep(interval_seconds)
 

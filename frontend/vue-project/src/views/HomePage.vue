@@ -190,20 +190,62 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { marked } from 'marked'
 import apiService from '../services/api'
 
-const url = ref('')
-const docType = ref('tech_doc')
+// 状态持久化键名
+const STORAGE_KEY = 'docgen_homepage_state'
+
+// 从sessionStorage恢复状态
+const loadState = () => {
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const data = JSON.parse(saved)
+      return {
+        url: data.url || '',
+        docType: data.docType || 'tech_doc',
+        exportFormat: data.exportFormat || 'md',
+        documentContent: data.documentContent || '',
+        previewMode: data.previewMode || 'raw',
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load state from sessionStorage:', e)
+  }
+  return { url: '', docType: 'tech_doc', exportFormat: 'md', documentContent: '', previewMode: 'raw' }
+}
+
+const savedState = loadState()
+
+const url = ref(savedState.url)
+const docType = ref(savedState.docType)
 const urlError = ref('')
 const isLoading = ref(false)
-const documentContent = ref('')
+const documentContent = ref(savedState.documentContent)
 const errorMessage = ref('')
 const loadingProgress = ref('')
-const previewMode = ref('raw')
+const previewMode = ref(savedState.previewMode)
 const history = ref([])
-const exportFormat = ref('md')
+const exportFormat = ref(savedState.exportFormat)
+
+// 监听状态变化并保存
+const saveState = () => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      url: url.value,
+      docType: docType.value,
+      exportFormat: exportFormat.value,
+      documentContent: documentContent.value,
+      previewMode: previewMode.value,
+    }))
+  } catch (e) {
+    console.warn('Failed to save state to sessionStorage:', e)
+  }
+}
+
+watch([url, docType, exportFormat, documentContent, previewMode], saveState, { deep: true })
 
 const docTypes = [
   { value: 'tech_doc', label: '技术文档', icon: '📝' },
